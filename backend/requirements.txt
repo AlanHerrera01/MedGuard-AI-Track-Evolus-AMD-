@@ -1,0 +1,21 @@
+# =============================================================================
+# MedGuard AI — Dependencias del backend
+# =============================================================================
+
+# --- API / Framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Configuración y validación ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Cliente HTTP (integraciones Evolus AI / AMD Cloud) ---
+httpx==0.28.1
+
+# --- Carga de variables de entorno (.env) ---
+python-dotenv==1.0.1
+
+# --- Utilidades ---
+python-multipart==0.0.20
+tenacity==9.0.0
