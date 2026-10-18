@@ -13,8 +13,9 @@ Uso:
 - Con pytest:        pytest backend/tests/test_integrations.py -v
 
 Requiere credenciales reales en ``.env`` (``EVOLUS_API_KEY``,
-``EVOLUS_APPLICATION_ID`` y ``AMD_API_KEY``). Sin ellas, cada prueba se
-marca como SKIP en lugar de fallar.
+``EVOLUS_APPLICATION_ID`` y ``AMD_API_KEY``). Sin ellas, o con el conector
+dual de AMD en modo mock (``AMD_MODE=mock`` o infraestructura no
+habilitada), cada prueba se marca como SKIP en lugar de fallar.
 """
 
 import asyncio
@@ -123,6 +124,9 @@ def check_amd_integration() -> str:
 
     client = AMDClient()
 
+    if client.is_mock:
+        return "SKIP"  # conector dual en modo mock: no hay GPU AMD real que probar
+
     try:
         result = asyncio.run(
             client.generate_completion(
@@ -158,7 +162,9 @@ def test_amd_client_integration() -> None:
     """pytest: valida la integración con AMD TokenFactory."""
     result = check_amd_integration()
     if result.startswith("SKIP"):
-        pytest.skip("Sin credenciales de AMD (AMD_API_KEY)")
+        pytest.skip(
+            "Sin credenciales de AMD (AMD_API_KEY) o conector dual en modo mock"
+        )
     assert result != "FAIL", result
 
 

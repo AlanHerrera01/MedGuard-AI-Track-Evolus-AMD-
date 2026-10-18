@@ -6,6 +6,7 @@ en el código. Esta capa no conoce detalles del dominio ni del transporte.
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -43,6 +44,20 @@ class Settings(BaseSettings):
     evolus_application_id: str = Field(default="", alias="EVOLUS_APPLICATION_ID")
     evolus_timeout_seconds: int = Field(default=30, alias="EVOLUS_TIMEOUT_SECONDS")
 
+    # --- Gemini ---
+    llm_provider: Literal["gemini"] = Field(
+        default="gemini",
+        alias="LLM_PROVIDER",
+    )
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    gemini_model: str = Field(
+        default="gemini-2.5-flash",
+        alias="GEMINI_MODEL",
+    )
+    # Reutilizar temperatura y max_tokens para compatibilidad
+    llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE")
+    llm_max_tokens: int = Field(default=2048, alias="LLM_MAX_TOKENS")
+
     # --- AMD Cloud / TokenFactory (API OpenAI-compatible) ---
     amd_cloud_base_url: str = Field(
         default="https://cloud.amd.example.com",
@@ -59,11 +74,11 @@ class Settings(BaseSettings):
     )
     amd_temperature: float = Field(default=0.0, alias="AMD_TEMPERATURE")
     amd_timeout_seconds: int = Field(default=60, alias="AMD_TIMEOUT_SECONDS")
-
-    # --- LLM (genérico / legado) ---
-    llm_model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
-    llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE")
-    llm_max_tokens: int = Field(default=2048, alias="LLM_MAX_TOKENS")
+    # Conector dual del Agente Auditor (desarrollo híbrido local):
+    #   auto -> vLLM/ROCm real si endpoint + API key están definidos; si no, mock local.
+    #   live -> fuerza la llamada real a la GPU AMD.
+    #   mock -> nunca llama a AMD; simula la auditoría de forma determinista local.
+    amd_mode: Literal["auto", "live", "mock"] = Field(default="auto", alias="AMD_MODE")
 
     @property
     def cors_origins_list(self) -> list[str]:

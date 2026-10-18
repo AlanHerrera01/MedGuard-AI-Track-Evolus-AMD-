@@ -1,0 +1,143 @@
+HOSPITAL METROPOLITANO DE ALTA COMPLEJIDAD
+SERVICIO DE CIRUGÍA GENERAL Y DIGESTIVA
+DOCUMENTO DE CONSENTIMIENTO INFORMADO: COLECISTECTOMÍA LAPAROSCÓPICA
+
+=============================================================================
+DATOS DEL PACIENTE
+=============================================================================
+
+Nombre del Paciente: Juan Pérez Rodríguez
+Número de Documento de Identidad: 12345678-9
+Fecha de Nacimiento: 15 de mayo de 1978
+Edad: 46 años
+Sexo: Masculino
+Número de Historia Clínica: HC-2024-001234
+
+=============================================================================
+DATOS DEL PROCEDIMIENTO
+=============================================================================
+
+Fecha del Procedimiento: 18 de octubre de 2024
+Tipo de Procedimiento: Colecistectomía Laparoscópica
+Finalidad del Procedimiento: Tratamiento de Colelitiasis sintomática recurrente
+Lugar del Procedimiento: Hospital Metropolitano de Alta Complejidad - Sala de Cirugía 3
+
+=============================================================================
+ANESTESIA
+=============================================================================
+
+Tipo de Anestesia: General
+Anestesiólogo: Dr. Carlos Méndez (Col. 89456)
+Evaluación Preanestésica: Realizada el 17 de octubre de 2024
+
+=============================================================================
+MÉDICO CIRUJANO RESPONSABLE
+=============================================================================
+
+Nombre: Dr. Roberto Valdés
+Especialidad: Cirugía General y Digestiva
+Cédula Profesional: 48102
+Teléfono: +56 9 1234 5678
+Correo: dr.valdes@hospital.com
+
+=============================================================================
+DESCRIPCIÓN DEL PROCEDIMIENTO
+=============================================================================
+
+Se realizará la extirpación quirúrgica de la vesícula biliar mediante incisiones mínimas asistidas por cámara de video de alta definición. El procedimiento incluye:
+
+1. Anestesia general con intubación orotraqueal
+2. Posicionamiento del paciente en decúbito supino
+3. Insuflación de CO2 para crear neumoperitoneo
+4. Inserción de trocares en puntos estratégicos
+5. Disecación y hemostasia de los ductos y vasos de la vesícula
+6. Extracción de la vesícula a través de la troca del ombligo
+
+Duración estimada: 60-90 minutos
+
+=============================================================================
+RIESGOS Y COMPLICACIONES DEL PROCEDIMIENTO
+=============================================================================
+
+1. RIESGOS GENERALES DE LA ANESTESIA:
+   - Reacción alérgica a los medicamentos anestésicos
+   - Dificultad para intubación
+   - Aspiración pulmonar
+   - Eventos cardiovasculares (hipotensión, arritmias)
+
+2. RIESGOS ESPECÍFICOS DE LA COLECISTECTOMÍA:
+   - Hemorragia intraoperatoria (1-3%)
+   - Lesión de vía biliar principal (conducto colédoco) (2-5%)
+   - Lesión de intestino delgado o colon
+   - Infección de herida quirúrgica (3-5%)
+   - Fuga de bilis al peritoneo
+   - Necesidad de conversión a cirugía abierta (laparotomía) (5-10%)
+
+3. RIESGOS POSTOPERATORIOS:
+   - Dolor postoperatorio moderado a severo
+   - Náuseas y vómitos
+   - Fiebre baja
+   - Diarrea o estreñimiento
+   - Flebitis
+   - Trombosis venosa profunda
+   - Embolia pulmonar
+
+=============================================================================
+ALTERNATIVAS AL PROCEDIMIENTO QUIRÚRGICO
+=============================================================================
+
+1. MANEJO CONSERVADOR (EXPECTANTE):
+   - Cambios en la dieta (baja en grasas)
+   - Medicación farmacológica (acenosulfurán, ursodiol)
+   - Observación clínica periódica
+   
+   Riesgo: Las piedras continuarán causando dolor y pueden provocar:
+   - Pancreatitis aguda (10-20% de riesgo)
+   - Colangitis (infección de vías biliares)
+   - Pancreatitis necrotizante (riesgo de mortalidad)
+
+2. LITOTRIPSIA EXTRACORPÓREA:
+   - Fractura de piedras con ondas de choque
+   - Efectividad limitada (menos del 50%)
+   - Requiere múltiples sesiones
+   
+   Riesgo: Gran probabilidad de recurrencia
+
+3. MEDICACIÓN FARMACOLÓGICA A LARGO PLAZO:
+   - Disolución de piedras con ácido ursodeoxicolico
+   - Takes 6-12 months
+   - Tasa de recurrencia >50% en 5 años
+
+=============================================================================
+DECLARACIÓN DE CONSENTIMIENTO
+=============================================================================
+
+Yo, Juan Pérez Rodríguez, con número de documento 12345678-9, after receiving a detailed explanation of the procedure, risks, benefits, and alternatives from Dr. Roberto Valdés, MD, voluntarily consent to the performance of a laparoscopic cholecystectomy on October 18, 2024.
+
+=============================================================================
+FIRMAS
+=============================================================================
+
+Firma del Paciente o Representante Legal:
+_____________________________
+Juan Pérez Rodríguez
+Cédula: 12345678-9
+Fecha: 18 de octubre de 2024
+
+Firma del Médico Cirujano Responsable:
+_____________________________
+Dr. Roberto Valdés
+Cédula Profesional: 48102
+Especialidad: Cirugía General y Digestiva
+Fecha: 18 de octubre de 2024
+
+Firma del Anestesiólogo:
+_____________________________
+Dr. Carlos Méndez
+Cédula Profesional: 89456
+Especialidad: Anestesiología
+Fecha: 17 de octubre de 2024
+
+=============================================================================
+FECHA DE ELABORACIÓN DEL DOCUMENTO: 18 de octubre de 2024
+=============================================================================

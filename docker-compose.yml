@@ -6,19 +6,19 @@ services:
     container_name: medguard-backend
     env_file:
       - .env
-    environment:
-      BACKEND_HOST: 0.0.0.0
-      BACKEND_PORT: 8000
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend/src:/app/src
+      - backend_logs:/app/logs
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+    networks:
+      - medguard-network
     restart: unless-stopped
 
   frontend:
@@ -26,10 +26,19 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
     container_name: medguard-frontend
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       - backend
+    networks:
+      - medguard-network
     restart: unless-stopped
+
+networks:
+  medguard-network:
+    driver: bridge
+
+volumes:
+  backend_logs:

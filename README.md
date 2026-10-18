@@ -54,7 +54,7 @@ Healthcare and legal professionals spend hours auditing informed consent forms, 
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - **Evolus AI** credentials: `EVOLUS_API_KEY` and `EVOLUS_APPLICATION_ID`
-- **AMD TokenFactory** token: `AMD_API_KEY` (endpoint defaults to `https://notebooks.amd.com/tokenfactory/v1`)
+- **AMD TokenFactory** token: `AMD_API_KEY` (endpoint defaults to `https://notebooks.amd.com/tokenfactory/v1`) — *optional for local dev: without it the dual connector runs in local mock mode (see below)*
 
 ## Quick Start (Docker)
 
@@ -73,7 +73,8 @@ Edit `.env`:
 EVOLUS_API_KEY=your_evolus_api_key
 EVOLUS_APPLICATION_ID=your_evolus_application_id
 
-# AMD Cloud (vLLM/ROCm)
+# AMD Cloud (vLLM/ROCm) — dual connector: auto|live|mock
+AMD_MODE=auto
 AMD_API_KEY=your_amd_token
 AMD_TOKEN_ENDPOINT=https://notebooks.amd.com/tokenfactory/v1
 AMD_MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
@@ -91,6 +92,31 @@ docker-compose up --build
 - **API Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
 
+## Hybrid Local Development (Mock Mode)
+
+The AMD connector (`backend/src/services/amd_client.py`) is a **dual connector**, so you can develop and test locally before the AMD instance is provisioned:
+
+| `AMD_MODE` | Behavior |
+|---|---|
+| `auto` (default) | Uses **real vLLM/ROCm** if `AMD_TOKEN_ENDPOINT` + `AMD_API_KEY` are set; otherwise **simulates the audit locally** (deterministic, zero network). |
+| `live` | Always calls the real AMD GPU endpoint. |
+| `mock` | Never calls AMD; returns a local heuristic audit. |
+
+Safety guarantees in mock mode (defense in depth):
+
+- The simulated report **always** sets `requires_human_override=true`.
+- `audit_confidence_score` is capped at **0.6** (< the orchestrator's 0.85 threshold), so the confidence rule forces human review every time.
+- The response is tagged with an explicit `safety_notice` ("modo simulación local") so no simulated report can be mistaken for a GPU-audited one.
+- Zero `httpx` calls: verified by the offline test suite.
+
+Enable the real AMD path by filling `AMD_API_KEY` (and, if needed, `AMD_TOKEN_ENDPOINT`) in `.env` — no code changes required.
+
+Run the offline dual-mode suite (no credentials, no network):
+
+```bash
+python backend/tests/test_amd_dual_mode.py
+```
+
 ## Hackathon Evaluation Criteria
 
 | Criterion | MedGuard AI Coverage |
@@ -106,7 +132,7 @@ medguard-ai/
 ├── backend/
 │   ├── src/
 │   │   ├── core/        # Orchestrator + Compliance Agent prompts
-│   │   ├── services/    # EvolusClient + AMDClient (resilient)
+│   │   ├── services/    # EvolusClient + AMDClient dual (live/mock) + MockAuditEngine
 │   │   ├── schemas/     # Pydantic v2 DTOs
 │   │   └── main.py      # FastAPI + global error handlers
 │   ├── tests/           # Integration tests

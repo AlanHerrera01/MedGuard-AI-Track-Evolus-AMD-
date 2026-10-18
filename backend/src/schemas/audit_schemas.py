@@ -1,110 +1,115 @@
-"""DTOs de auditoría clínica de MedGuard AI (Pydantic v2).
+"""Esquemas Pydantic v2 para la API de auditoría.
 
-Define el flujo completo de auditoría:
-
-- ``AuditRequest``: contrato de entrada del cliente.
-- ``ClinicalRisk``: riesgo clínico/legal individual identificado.
-- ``AuditReportResponse``: informe final de la auditoría.
-
-Se prioriza lo que exige la especificación: type hints estrictos con
-valores anotados y descripciones claras en cada campo.
+Define los DTOs de entrada y salida del endpoint `/api/v1/audit`, incluyendo
+validación estricta, generación automática de documentación OpenAPI y
+serialización/deserialización a/from JSON.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class AuditRequest(BaseModel):
-    """Petición de auditoría de un documento clínico.
+    """Solicitud de auditoría.
 
     Attributes:
-        document_text: Texto completo del documento a auditar.
+        document_text: Texto del documento a auditar.
+        lang: Código de idioma (por defecto "en").
+        document_file: Archivo PDF/txt (opcional, si se sube un archivo).
     """
-
-    model_config = ConfigDict(
-        extra="forbid",
-        str_strip_whitespace=True,
-    )
 
     document_text: str = Field(
+        default="",
+        description="Texto del documento a auditar.",
         min_length=1,
-        description="Texto completo del documento clínico a auditar.",
     )
+    lang: str = Field(default="en", description="Código de idioma (en/es).")
+    # document_file se maneja separadamente en FastAPI como UploadFile
 
-
-class ClinicalRisk(BaseModel):
-    """Riesgo clínico o legal identificado durante la auditoría.
-
-    Attributes:
-        risk_category: Categoría del riesgo (p. ej. DOSAGE_CHECK, CONSENT_GAP,
-            ALLERGY_WARNING, LEGAL_COMPLIANCE).
-        description: Explicación del riesgo detectado en el documento.
-        severity: Gravedad estimada del riesgo (HIGH, MEDIUM o LOW).
-    """
-
-    model_config = ConfigDict(
-        extra="ignore",
-        str_strip_whitespace=True,
-    )
-
-    risk_category: str = Field(
-        min_length=1,
-        description=(
-            "Categoría del riesgo detectado (p. ej. ALLERGY_WARNING, CONSENT_GAP, "
-            "DOSAGE_CHECK, LEGAL_COMPLIANCE)."
-        ),
-    )
-    description: str = Field(
-        min_length=1,
-        description="Descripción del riesgo clínico o legal identificado.",
-    )
-    severity: str = Field(
-        min_length=1,
-        description="Severidad del riesgo: HIGH, MEDIUM o LOW.",
-    )
+    @field_validator("document_text")
+    @classmethod
+    def validate_document_text(cls, v: str) -> str:
+        """Valida que el texto no esté vacío."""
+        if not v or not v.strip():
+            raise ValueError("document_text no puede estar vacío.")
+        return v.strip()
 
 
 class AuditReportResponse(BaseModel):
-    """Informe final de una auditoría clínica agéntica.
+    """Informe de auditoría generado por el Agente Auditor.
 
     Attributes:
-        status: Estado del proceso (p. ej. "completed").
-        procedure_name: Procedimiento clínico detectado en el documento.
-        patient_id_masked: Identificador del paciente anonimizado.
-        missing_fields: Campos obligatorios ausentes en la documentación.
-        clinical_risks: Lista de riesgos clínicos/legales identificados.
-        requires_human_override: True si el resultado exige revisión humana.
-        audit_confidence_score: Confianza del análisis en el rango [0.0, 1.0].
+        status: Estado del proceso ("completed" o "failed").
+        procedure_name: Nombre del procedimiento o finalidad extraído.
+        patient_id_masked: Identificador del paciente enmascarado (GDPR).
+        missing_fields: Lista de campos obligatorios ausentes.
+        clinical_risks: Lista de riesgos clínicos/documentales detectados.
+        requires_human_override: Indica si requiere revisión humana obligatoria.
+        audit_confidence_score: Puntuación de confianza del análisis (0.0-1.0).
+        safety_notice: Nota de seguridad para informes simulados o con riesgo.
     """
-
-    model_config = ConfigDict(extra="ignore")
 
     status: str = Field(
         default="completed",
-        description="Estado de la auditoría (p. ej. 'completed' o 'failed').",
+        pattern="^(completed|failed)$",
+        description="Estado del proceso de auditoría.",
     )
     procedure_name: str = Field(
         default="UNKNOWN",
-        description="Procedimiento clínico detectado en el documento.",
+        description="Nombre del procedimiento o finalidad extraído.",
     )
     patient_id_masked: str = Field(
         default="[REDACTED]",
-        description="Identificador del paciente anonimizado.",
+        description="Identificador del paciente enmascarado (GDPR).",
     )
     missing_fields: list[str] = Field(
         default_factory=list,
-        description="Campos obligatorios que faltan en el documento.",
+        description="Lista de campos obligatorios ausentes en el documento.",
     )
-    clinical_risks: list[ClinicalRisk] = Field(
+    clinical_risks: list["ClinicalRisk"] = Field(
         default_factory=list,
-        description="Riesgos clínicos o legales identificados por la auditoría.",
+        description="Lista de riesgos clínicos/documentales detectados.",
     )
     requires_human_override: bool = Field(
-        default=True,
-        description="Indica si el informe exige validación por un profesional humano.",
+        default=False,
+        description="Indica si requiere revisión humana obligatoria.",
     )
     audit_confidence_score: float = Field(
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="Nivel de confianza del análisis, entre 0.0 y 1.0.",
+        description="Puntuación de confianza del análisis (0.0-1.0).",
     )
+    safety_notice: str | None = Field(
+        default=None,
+        description="Nota de seguridad para informes simulados o con riesgo.",
+    )
+
+
+class ClinicalRisk(BaseModel):
+    """Riesgo clínico o documental detectado por el agente auditor.
+
+    Attributes:
+        risk_category: Categoría del riesgo (LEGAL_COMPLIANCE, CONSENT_GAP, etc.).
+        description: Descripción detallada del riesgo.
+        severity: Nivel de severidad (HIGH, MEDIUM, LOW).
+    """
+
+    risk_category: str = Field(
+        default="LEGAL_COMPLIANCE",
+        description="Categoría del riesgo detectado.",
+    )
+    description: str = Field(
+        default="",
+        description="Descripción detallada del riesgo.",
+    )
+    severity: str = Field(
+        default="MEDIUM",
+        pattern="^(HIGH|MEDIUM|LOW)$",
+        description="Nivel de severidad del riesgo.",
+    )
+
+
+# Importar aquí para evitar dependencia circular
+AuditReportResponse.model_rebuild()

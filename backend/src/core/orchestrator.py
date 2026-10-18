@@ -3,13 +3,15 @@
 `ClinicalOrchestrator` coordina el pipeline de auditoría administrativa:
 
 * Paso 1: estructura el documento con `EvolusClient.run_document_extractor`.
-* Paso 2: entrega los datos extraídos al Agente Auditor alojado en AMD Cloud
-  mediante `AMDClient.generate_completion`.
-* Paso 3 (fallback): si el modelo AMD falla al decodificar el JSON o la
-  llamada a la GPU lanza una excepción, se activa un Agente Fallback
-  determinista que devuelve una estructura de emergencia segura con
-  `requires_human_override=True` y un riesgo crítico por fallo de
-  infraestructura.
+* Paso 2: entrega los datos extraídos al Agente Auditor utilizando Gemini.
+  Si el conector dual opera en modo mock (instancia AMD aún no habilitada),
+  la respuesta es simulada localmente y se etiqueta con un `safety_notice`
+  explícito; en cualquier caso se exige `requires_human_override=True` para
+  el informe simulado.
+* Paso 3 (fallback): si el modelo Gemini falla al decodificar el JSON o la
+  llamada falla, se activa un Agente Fallback determinista que devuelve
+  una estructura de emergencia segura con `requires_human_override=True`
+  y un riesgo crítico por fallo de infraestructura.
 * Paso 4 (regla de negocio): si `audit_confidence_score < 0.85` se fuerza
   `requires_human_override=True` y se adjunta una advertencia de seguridad
   visible.
@@ -88,16 +90,33 @@ class ClinicalOrchestrator:
 
     async def _analyze_with_fallback(self, extracted_data: dict[str, Any]) -> dict[str, Any]:
         user_prompt = prompts.get_audit_user_prompt(extracted_data=extracted_data)
+        
+        from src.services.gemini_client import GeminiAPIError, GeminiClient
+        gemini_client = GeminiClient()
+
         try:
-            parsed = await self.amd.generate_completion(
+            parsed = await gemini_client.generate_completion(
                 system_prompt=prompts.CLINICAL_AUDITOR_SYSTEM_PROMPT,
                 user_prompt=user_prompt,
-                temperature=settings.amd_temperature,
+                temperature=settings.llm_temperature,
             )
             result = AuditReportResponse.model_validate(parsed).model_dump()
-            logger.info("Paso 2 | Agente AMD respondió JSON válido")
+
+            # Marcar si la respuesta es simulada (modo mock AMD)
+            if hasattr(self.amd, 'is_mock') and self.amd.is_mock:
+                result["requires_human_override"] = True
+                result["safety_notice"] = (
+                    "Modo simulación local (mock) activo: la instancia AMD "
+                    "(vLLM/ROCm) aún no está habilitada. Informe provisional "
+                    "generado por heurística local; requiere revisión humana."
+                )
+                logger.warning(
+                    "Paso 2 | Respuesta SIMULADA localmente (modo mock AMD)"
+                )
+            else:
+                logger.info("Paso 2 | Gemini respondió JSON válido")
             return result
-        except (AMDAPIError, ValidationError) as exc:
+        except (AMDAPIError, GeminiAPIError, ValidationError, NotImplementedError, Exception) as exc:
             reason = self._safe_reason(exc)
             logger.error("Paso 3 | Agente Fallback activado (%s)", reason)
             result = self._emergency_response(reason)
@@ -133,7 +152,9 @@ class ClinicalOrchestrator:
 
     @staticmethod
     def _safe_reason(exc: Exception) -> str:
-        if isinstance(exc, AMDAPIError):
+        from src.services.gemini_client import GeminiAPIError
+
+        if isinstance(exc, (AMDAPIError, GeminiAPIError)):
             return exc.detail
         if isinstance(exc, ValidationError):
             return "el modelo devolvió un JSON no conforme al esquema"

@@ -1,4 +1,4 @@
-"""Cliente para la API OpenAI-compatible de AMD TokenFactory.
+"""Cliente dual para la API OpenAI-compatible de AMD TokenFactory.
 
 Infraestructura AMD (contexto de la integración)
 -------------------------------------------------
@@ -18,6 +18,21 @@ Implicaciones para este cliente:
 - El servidor AMD vive en una infraestructura remota con GPUs compartidas:
   es imprescindible manejar timeouts y fallos de conexión, por lo que toda
   falla se traduce en ``AMDAPIError`` con mensaje descriptivo.
+
+Conector dual (desarrollo híbrido local / modo mock)
+----------------------------------------------------
+Mientras la instancia AMD no esté habilitada, el cliente opera en **modo
+mock** sin cambiar su interfaz pública (mismos métodos, mismo contrato):
+
+- ``AMD_MODE=auto`` (default): usa vLLM/ROCm real si ``AMD_TOKEN_ENDPOINT``
+  y ``AMD_API_KEY`` están definidos; en caso contrario simula la respuesta
+  localmente con ``MockAuditEngine`` (determinista, sin red).
+- ``AMD_MODE=live``: fuerza la llamada real a la GPU AMD.
+- ``AMD_MODE=mock``: nunca llama a AMD; simula la auditoría localmente.
+
+La resolución se loguea al construir el cliente, y la propiedad
+``is_mock`` permite a la capa superior (orquestador) etiquetar los
+informes simulados para revisión humana obligatoria.
 """
 
 import json
@@ -30,11 +45,18 @@ from pydantic import ValidationError
 
 from src.config import settings
 from src.schemas.audit_schemas import AuditReportResponse
+from src.services.mock_engine import MockAuditEngine
 
 logger = logging.getLogger("medguard.services.amd")
 
 # Ruta del endpoint OpenAI-compatible de chat (esquema vLLM/ROCm).
 _CHAT_PATH = "/chat/completions"
+
+# Modos del conector dual.
+_MODE_AUTO = "auto"
+_MODE_LIVE = "live"
+_MODE_MOCK = "mock"
+_VALID_MODES = {_MODE_AUTO, _MODE_LIVE, _MODE_MOCK}
 
 # Instrucción de sistema: fuerza salida JSON estricta y sin texto adicional.
 _SYSTEM_PROMPT = (
@@ -75,7 +97,7 @@ class AMDAPIError(Exception):
 
 
 class AMDClient:
-    """Cliente de la API OpenAI-compatible de AMD TokenFactory (vLLM)."""
+    """Cliente dual de la API OpenAI-compatible de AMD TokenFactory (vLLM)."""
 
     def __init__(
         self,
@@ -83,6 +105,7 @@ class AMDClient:
         api_key: str | None = None,
         model_name: str | None = None,
         timeout: float | None = None,
+        mode: str | None = None,
     ) -> None:
         """Configura el cliente con valores inyectables.
 
@@ -95,11 +118,21 @@ class AMDClient:
                 ``settings.amd_model_name``.
             timeout: Timeout de red en segundos. Por defecto
                 ``settings.amd_timeout_seconds``.
+            mode: Modo del conector dual (``auto`` | ``live`` | ``mock``).
+                Por defecto ``settings.amd_mode``.
         """
         self.token_endpoint = (token_endpoint or settings.amd_token_endpoint).rstrip("/")
         self.api_key = api_key if api_key is not None else settings.amd_api_key
         self.model_name = model_name or settings.amd_model_name
         self.timeout = timeout if timeout is not None else settings.amd_timeout_seconds
+        self.mode = self._resolve_mode(mode or settings.amd_mode)
+        self.mock_engine = MockAuditEngine()
+        self._log_mode()
+
+    @property
+    def is_mock(self) -> bool:
+        """True si el cliente opera en modo simulación local (sin GPU AMD)."""
+        return self.mode == _MODE_MOCK
 
     @property
     def headers(self) -> dict[str, str]:
@@ -110,13 +143,58 @@ class AMDClient:
             "Authorization": f"Bearer {self.api_key}",
         }
 
+    def _resolve_mode(self, requested: str) -> str:
+        """Resuelve el modo efectivo del conector dual.
+
+        Regla ``auto``: se considera que la instancia AMD está "habilitada"
+        solo si el endpoint Y la API key están definidos (no vacíos). Si la
+        infraestructura aún no está disponible, se degrada a modo mock para
+        permitir el desarrollo local híbrido sin romper el pipeline.
+
+        Args:
+            requested: Modo solicitado (``auto``, ``live`` o ``mock``).
+
+        Returns:
+            Modo efectivo (``live`` o ``mock``).
+        """
+        normalized = (requested or _MODE_AUTO).strip().lower()
+        if normalized not in _VALID_MODES:
+            logger.warning(
+                "AMD_MODE desconocido (%r); se usa 'auto'.", requested
+            )
+            normalized = _MODE_AUTO
+
+        if normalized == _MODE_AUTO:
+            infra_ready = bool(self.token_endpoint) and bool(self.api_key)
+            return _MODE_LIVE if infra_ready else _MODE_MOCK
+        return normalized
+
+    def _log_mode(self) -> None:
+        """Registra el modo resuelto al arrancar el cliente (auditoría)."""
+        if self.is_mock:
+            logger.info(
+                "AMDClient en MODO MOCK (simulación local, sin red): "
+                "endpoint=%s aún no habilitado o AMD_MODE=mock.",
+                self.token_endpoint,
+            )
+        else:
+            logger.info(
+                "AMDClient en modo LIVE (vLLM/ROCm): endpoint=%s modelo=%s",
+                self.token_endpoint,
+                self.model_name,
+            )
+
     async def generate_completion(
         self,
         system_prompt: str,
         user_prompt: str,
         temperature: float = 0.1,
     ) -> dict[str, Any]:
-        """Genera una completitud de chat contra el vLLM de AMD (ROCm).
+        """Genera una completitud de chat (GPU AMD real o simulación local).
+
+        En modo mock delega en ``MockAuditEngine``: mismo contrato de salida
+        (dict parseado), cero llamadas de red. En modo live ejecuta la
+        inferencia en el vLLM de AMD (ROCm).
 
         Args:
             system_prompt: Prompt de sistema (restricciones y formato).
@@ -129,8 +207,12 @@ class AMDClient:
         Raises:
             AMDAPIError: Si falla la conexión con el endpoint de GPUs AMD,
                 si el servidor responde con un código distinto de 200 o si
-                el modelo no devuelve un JSON válido.
+                el modelo no devuelve un JSON válido. No aplica en modo mock.
         """
+        if self.is_mock:
+            logger.debug("Modo mock: generando auditoría simulada localmente.")
+            return self.mock_engine.generate(user_prompt)
+
         # Payload estándar OpenAI, aceptado directamente por la capa
         # OpenAI-compatible de vLLM servida sobre ROCm.
         payload: dict[str, Any] = {
