@@ -81,13 +81,14 @@ class GeminiClient:
 
     @staticmethod
     def _parse_strict_json(content: str) -> dict[str, Any] | None:
-        """Parsea JSON estricto tolerando cercas ```json ... ```."""
+        """Parsea JSON tolerando cercas de código, texto alrededor y truncamientos."""
         if not content:
             return None
 
         candidate = content.strip()
-        # Quitar cercas de Markdown
         import re
+
+        # Quitar cercas de Markdown
         fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", candidate, re.DOTALL)
         if fence:
             candidate = fence.group(1).strip()
@@ -99,10 +100,22 @@ class GeminiClient:
 
         try:
             parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
         except (json.JSONDecodeError, ValueError):
-            return None
+            pass
 
-        return parsed if isinstance(parsed, dict) else None
+        # Intento de rescate si el JSON fue truncado al final
+        if first_brace != -1 and not candidate.endswith("}"):
+            for suffix in ["}]}", "]}", "}", '"]}']:
+                try:
+                    repaired = json.loads(candidate + suffix)
+                    if isinstance(repaired, dict):
+                        return repaired
+                except Exception:
+                    continue
+
+        return None
 
     @staticmethod
     def _contingency_response(reason: str) -> dict[str, Any]:
@@ -155,7 +168,7 @@ class GeminiClient:
             ],
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": settings.llm_max_tokens,
+                "maxOutputTokens": max(settings.llm_max_tokens, 4096),
                 "responseMimeType": "application/json",
             },
         }
@@ -189,6 +202,14 @@ class GeminiClient:
             content = self._extract_content(result)
             parsed = self._parse_strict_json(content)
             if parsed is None:
+                candidates = result.get("candidates") or []
+                finish_reason = candidates[0].get("finishReason") if candidates else "unknown"
+                logger.error(
+                    "Gemini parse fail: finishReason=%s, content length=%d, content preview: %s",
+                    finish_reason,
+                    len(content),
+                    content[:500],
+                )
                 raise GeminiAPIError(
                     status_code=httpx.codes.OK,
                     detail="El modelo Gemini devolvió contenido que no es JSON válido.",
@@ -274,4 +295,5 @@ class GeminiClient:
         parts = content.get("parts") or []
         if not parts:
             return ""
-        return parts[0].get("text") or ""
+        texts = [p.get("text", "") for p in parts if isinstance(p, dict) and "text" in p]
+        return "".join(texts)
