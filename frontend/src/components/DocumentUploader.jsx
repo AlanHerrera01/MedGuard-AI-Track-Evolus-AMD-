@@ -46,7 +46,7 @@ d) Pronóstico en caso de rechazo del procedimiento quirúrgico.]
 Firma del Paciente: [Registrada]
 Firma del Facultativo Responsable: Dr. R. Valdés (Col. 48102)`;
 
-export default function DocumentUploader({ onAudit, loading, lang = "en", documentText, setDocumentText }) {
+export default function DocumentUploader({ onAudit, loading, lang = "en", documentText, setDocumentText, setSourceFile }) {
   const t = translations[lang];
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
@@ -80,6 +80,7 @@ export default function DocumentUploader({ onAudit, loading, lang = "en", docume
 
   const clearText = () => {
     setDocumentText("");
+    setSourceFile?.(null);
   };
 
   const pasteText = async () => {
@@ -118,10 +119,12 @@ export default function DocumentUploader({ onAudit, loading, lang = "en", docume
       if (isTxt) {
         const text = await file.text();
         setDocumentText(text);
+        setSourceFile?.(file);
       } else {
         const response = await extractDocumentFile(file, lang);
         if (response && response.text) {
           setDocumentText(response.text);
+          setSourceFile?.(file);
         } else {
           alert(
             lang === "es"

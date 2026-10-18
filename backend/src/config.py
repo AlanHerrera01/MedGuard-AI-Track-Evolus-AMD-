@@ -54,6 +54,12 @@ class Settings(BaseSettings):
         default="gemini-2.5-flash",
         alias="GEMINI_MODEL",
     )
+    # Modelo secundario de respaldo: se intenta si el modelo principal
+    # falla (503/429/timeout). Cuota independiente en el tier gratuito.
+    gemini_fallback_model: str = Field(
+        default="gemini-2.5-flash-lite",
+        alias="GEMINI_FALLBACK_MODEL",
+    )
     # Reutilizar temperatura y max_tokens para compatibilidad
     llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=2048, alias="LLM_MAX_TOKENS")

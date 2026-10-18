@@ -382,6 +382,7 @@ class AMDClient:
             clinical_risks=[],
             requires_human_override=True,
             audit_confidence_score=0.0,
+            safety_notice=f"Análisis en la GPU AMD no disponible: {reason}",
         ).model_dump()
 
     @staticmethod

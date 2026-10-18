@@ -16,6 +16,8 @@ class EvolusToolRequest(BaseModel):
 
     Attributes:
         text: Contenido textual que la herramienta debe procesar.
+        options: Opciones específicas de la herramienta (p. ej.
+            ``{"format": "json", "content": "data"}`` para ``doc-structure``).
     """
 
     model_config = ConfigDict(
@@ -26,6 +28,11 @@ class EvolusToolRequest(BaseModel):
     text: str = Field(
         min_length=1,
         description="Texto de entrada (documento clínico) que procesa el AI Tool de Evolus.",
+    )
+
+    options: dict[str, Any] | None = Field(
+        default=None,
+        description="Opciones opcionales del AI Tool de Evolus.",
     )
 
 

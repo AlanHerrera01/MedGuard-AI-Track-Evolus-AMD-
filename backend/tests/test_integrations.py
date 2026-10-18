@@ -83,8 +83,11 @@ def check_evolus_integration() -> str:
     # 1) Status code: llamada HTTP directa y explícita.
     try:
         raw = httpx.post(
-            f"{settings.evolus_base_url}/ai-tools/document-extractor/run",
-            json={"text": SAMPLE_CLINICAL_TEXT},
+            f"{settings.evolus_base_url}/ai-tools/doc-structure/run",
+            json={
+                "text": SAMPLE_CLINICAL_TEXT,
+                "options": {"format": "json", "content": "data"},
+            },
             headers=client.headers,
             timeout=settings.evolus_timeout_seconds,
         )

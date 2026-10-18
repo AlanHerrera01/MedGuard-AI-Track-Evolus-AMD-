@@ -13,6 +13,7 @@ La configuración se importa de ``src.config.settings`` (Pydantic
 Settings), de modo que el cliente no depende de ``os.environ``.
 """
 
+import json
 import logging
 from typing import Any
 
@@ -97,25 +98,54 @@ class EvolusClient:
     async def run_document_extractor(self, text_content: str) -> dict[str, Any]:
         """Extrae datos estructurados de un documento clínico.
 
-        Ejecuta el AI Tool ``document-extractor`` de Evolus AI.
+        Ejecuta el AI Tool ``doc-structure`` de Evolus AI (documento → JSON).
 
         Args:
             text_content: Texto del documento a procesar.
 
         Returns:
-            Diccionario con el JSON estructurado devuelto por Evolus.
+            Diccionario con la JSON estructurado devuelto por Evolus. Si la
+            herramienta devuelve ``output`` como cadena JSON, se parsea y se
+            añade en la clave ``extracted`` para que el prompt reciba datos
+            estructurados y no texto escapado.
 
         Raises:
             EvolusAPIError: Si el servicio responde con un código HTTP
                 distinto de 200 o falla la red/timeout.
         """
-        payload = EvolusToolRequest(text=text_content).model_dump()
-        return await self.run_ai_tool(tool_name="document-extractor", payload=payload)
+        payload = EvolusToolRequest(
+            text=text_content,
+            options={"format": "json", "content": "data"},
+        ).model_dump(exclude_none=True)
+        data = await self.run_ai_tool(tool_name="doc-structure", payload=payload)
+        return self._parse_structured_output(data)
+
+    @staticmethod
+    def _parse_structured_output(data: dict[str, Any]) -> dict[str, Any]:
+        """Parsea ``output`` si Evolus lo devuelve como cadena JSON.
+
+        Args:
+            data: Respuesta cruda del AI Tool (``tool``, ``output``, ...).
+
+        Returns:
+            La misma respuesta con ``extracted`` (dict parseado) o
+            ``output_text`` (texto no JSON) según corresponda.
+        """
+        output = data.get("output")
+        if isinstance(output, str):
+            try:
+                parsed = json.loads(output)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, dict):
+                return {**data, "extracted": parsed}
+            data["output_text"] = output
+        return data
 
     async def run_pii_redaction(self, text_content: str) -> dict[str, Any]:
         """Anonimiza datos sensibles de salud/paciente (PII/PHI).
 
-        Ejecuta el AI Tool ``redaction`` de Evolus AI.
+        Ejecuta el AI Tool ``anonymize`` de Evolus AI (redacción real de PII).
 
         Args:
             text_content: Texto del documento con posibles datos sensibles.
@@ -128,8 +158,8 @@ class EvolusClient:
             EvolusAPIError: Si el servicio responde con un código HTTP
                 distinto de 200 o falla la red/timeout.
         """
-        payload = EvolusToolRequest(text=text_content).model_dump()
-        return await self.run_ai_tool(tool_name="redaction", payload=payload)
+        payload = EvolusToolRequest(text=text_content).model_dump(exclude_none=True)
+        return await self.run_ai_tool(tool_name="anonymize", payload=payload)
 
     async def run_ai_tool(self, tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Invoca una herramienta genérica de Evolus AI.

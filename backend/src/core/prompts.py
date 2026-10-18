@@ -62,7 +62,17 @@ AUDIT_OUTPUT_SCHEMA = """\
     }
   ],
   "requires_human_override": true,
-  "audit_confidence_score": 0.0
+    "audit_confidence_score": 0.0
+  },
+  "required": [
+    "status",
+    "procedure_name",
+    "patient_id_masked",
+    "missing_fields",
+    "clinical_risks",
+    "requires_human_override",
+    "audit_confidence_score"
+  ]
 }
 """
 
@@ -133,6 +143,12 @@ TAREA — ámbito EXCLUSIVAMENTE administrativo y de cumplimiento (ISO 27001 / G
    {risk_categories}.
    Recuerda: NUNCA sugieras tratamientos ni emitas juicios clínicos.
 3. {_CONFIDENCE_RULE}
+   Usa esta escala de referencia OBLIGATORIA para decidir el valor:
+   - Completo y verificable (firmas, fecha, consentimiento, procedimiento claro): 0.95
+   - Mayoría completo con 1–2 omisiones menores: 0.85
+   - Omisiones relevantes (consentimiento/firma/procedimiento ambiguo): 0.65
+   - Evidencia limitada/incompleta o contradictoria: 0.30
+   - Sin evidencia estructurada suficiente o extracción fallida: 0.10
 4. {_OVERRIDE_RULE}
 
 Responde ÚNICAMENTE con el siguiente JSON, sin texto adicional:
